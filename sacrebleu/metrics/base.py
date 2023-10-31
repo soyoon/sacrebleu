@@ -10,6 +10,7 @@ import logging
 import statistics
 from typing import List, Sequence, Any, Optional, Dict
 from abc import ABCMeta, abstractmethod
+from ..resegment import Resegment
 
 from .. import __version__
 
@@ -430,6 +431,18 @@ class Metric(metaclass=ABCMeta):
             actual_score.estimate_ci(bs_scores)
 
         return actual_score
+
+    def resegment(self, hypotheses: Sequence[str], 
+                    references: Optional[Sequence[Sequence[str]]],
+                    tokenize: str = "none"):
+        self._check_corpus_score_args(hypotheses, references)
+        if len(references) != 1:
+            sacrelogger.error('FATAL: line {}: Resegmentation currently only supported for single reference'.format(lineno))
+            sys.exit(17)
+
+        reseg = Resegment(tokenize=tokenize)
+        resegmented_hypos = reseg.align(hypotheses, references[0])
+        return resegmented_hypos
 
     def get_signature(self) -> Signature:
         """Creates and returns the signature for the metric. The creation

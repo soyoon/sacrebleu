@@ -39,6 +39,7 @@ if __package__ is None and __name__ == '__main__':
 
 from .dataset import DATASETS
 from .metrics import METRICS
+from .resegment import Resegment
 from .utils import smart_open, filter_subset, get_langpairs_for_testset, get_available_testsets
 from .utils import print_test_set, print_subset_results, get_reference_files, download_test_set
 from .utils import args_to_dict, sanity_check_lengths, print_results_table, print_single_results
@@ -180,6 +181,13 @@ def parse_args():
     pair_args.add_argument('--paired-jobs', '-j', type=int, default=1,
                            help='If 0, launches as many workers as the number of systems. If > 0, sets the number of workers manually. '
                                 'This feature is currently not supported on Windows.')
+
+    # Resegmentation
+    reseg_parser = arg_parser.add_argument_group('Resegmentation argument')
+    reseg_parser.add_argument('--resegment', action='store_true', default=False,
+                            help='Resegment hypotheses to fit sentence segmentation of reference (default: %(default)s)')
+    reseg_parser.add_argument('--output_resegment', type=str, default="",
+                            help='Output resegmented input to file (default: %(default)s)')
 
     # Reporting related arguments
     report_args = arg_parser.add_argument_group('Reporting related arguments')
@@ -453,6 +461,18 @@ def main():
     if num_sys > 1 and args.confidence:
         sacrelogger.error('Use paired tests (--paired) for multiple systems.')
         sys.exit(1)
+
+    if args.resegment:
+        if args.num_refs != 1:
+            sacrelogger.error('FATAL: line {}: Resegmentation currently only supported for single reference'.format(lineno))
+            sys.exit(17)
+        reseg = Resegment(args.bleu_tokenize)
+        full_systems = [reseg.align(full_refs[0],full_systems[0])]
+        if(args.output_resegment):
+            out_seg= smart_open(args.output_resegment, mode='w',encoding=args.encoding)
+            for l in full_systems[0]:
+                out_seg.write(l+"\n")
+            out_seg.close()
 
     # Filter subsets if requested
     outputs = filter_subset(
